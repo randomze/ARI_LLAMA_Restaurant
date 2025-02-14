@@ -1,3 +1,6 @@
 [submodule "RODGER"]
 	path = RODGER
 	url = https://github.com/Ermanno-Bartoli/RODGER.git
+[submodule "ari-convenience-docker"]
+	path = ari-convenience-docker
+	url = https://github.com/randomze/ari-convenience-docker.git

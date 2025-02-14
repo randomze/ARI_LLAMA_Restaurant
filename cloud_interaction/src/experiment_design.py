@@ -20,18 +20,16 @@ from datetime import datetime
 
 
 class CloudTurnTakingSpeechInteraction:
-    def __init__(self, participant_id):
+    def __init__(
+        self, participant_id, *, server_ip: str = "localhost", server_port: int = 5000
+    ):
+        server_uri = f"http://{server_ip}:{server_port}"
         print("[SYSTEM] Initializing CloudTurnTakingSpeechInteraction")
-        self.ollama_server_take_order_food = (
-            "http://130.237.67.246:5000/take_order_food"
-        )
-        self.ollama_server_sit_customer = "http://130.237.67.246:5000/sit_customer"
-        self.ollama_server_take_order_drink = (
-            "http://130.237.67.246:5000/take_order_drink"
-        )
-        self.ollama_server_take_order_dessert = (
-            "http://130.237.67.246:5000/take_order_dessert"
-        )
+        self.ollama_server_take_order_food = f"{server_uri}/take_order_food"
+        self.ollama_server_sit_customer = f"{server_uri}/sit_customer"
+        self.ollama_server_take_order_drink = f"{server_uri}/take_order_drink"
+        self.ollama_server_take_order_dessert = f"{
+            server_uri}/take_order_dessert"
         self.number_retries = 0
         self.max_number_retries = 3
 
@@ -51,8 +49,7 @@ class CloudTurnTakingSpeechInteraction:
         self.can_listen = False
 
         # Subscribe to the TTS action server
-        self.tts_action_client = actionlib.SimpleActionClient(
-            "/tts", TtsAction)
+        self.tts_action_client = actionlib.SimpleActionClient("/tts", TtsAction)
         self.tts_action_client.wait_for_server(rospy.Duration(10))
         self.tts_language = "en_GB"
         print("[SYSTEM] Finished initializing TTS")
@@ -120,10 +117,8 @@ class CloudTurnTakingSpeechInteraction:
         self.logger.log_message(
             user_id, "PROCESSING TIME | " + call_type, elapsed_time, response
         )
-        self.logger.log_message(
-            user_id, "LATENCY | " + call_type, latency_time, "")
-        self.logger.log_message_new(
-            user_id, call_type, "", total_time, response, 0)
+        self.logger.log_message(user_id, "LATENCY | " + call_type, latency_time, "")
+        self.logger.log_message_new(user_id, call_type, "", total_time, response, 0)
 
         _, _, greeting = self.process_llm_response(response)
 
@@ -137,8 +132,7 @@ class CloudTurnTakingSpeechInteraction:
 
         # Listen for the customer order
 
-        status, _, response = self.listen_customer_response(
-            ollama_server, user_id)
+        status, _, response = self.listen_customer_response(ollama_server, user_id)
         return status, user_id, response
 
     def listen_customer_response(self, ollama_server, user_id):
@@ -146,8 +140,7 @@ class CloudTurnTakingSpeechInteraction:
         self.can_listen = True
         user_response = ""
         while user_response == "":
-            self.user_text_publisher.publish(
-                String("Please tell me your order"))
+            self.user_text_publisher.publish(String("Please tell me your order"))
             while self.user_message_queue.empty():
                 rospy.sleep(0.1)
 
@@ -179,10 +172,8 @@ class CloudTurnTakingSpeechInteraction:
         self.logger.log_message(
             user_id, "PROCESSING TIME | " + call_type, elapsed_time, response
         )
-        self.logger.log_message(
-            user_id, "LATENCY | " + call_type, latency_time, "")
-        self.logger.log_message_new(
-            user_id, call_type, order, total_time, text, 0)
+        self.logger.log_message(user_id, "LATENCY | " + call_type, latency_time, "")
+        self.logger.log_message_new(user_id, call_type, order, total_time, text, 0)
 
         if status == 0:  # Successfully understood the client's order
             # Communicate that we did not understand and ask them to try again
@@ -267,6 +258,8 @@ class RobotBasedExperiment(StateMachine):
     def __init__(self):
         super().__init__()
         self.participant_id = rospy.get_param("~participant_id", 0)
+        self.server_ip = rospy.get_param("~server_ip", "localhost")
+        self.server_port = rospy.get_param("~server_port", 5000)
         print(self.participant_id)
 
         self.condition, self.type_of_order = self.read_condition_participant()
@@ -276,10 +269,13 @@ class RobotBasedExperiment(StateMachine):
         if "offloaded" in self.condition:
             self.participant_id = str(self.participant_id) + "_offloaded"
             self.turntaker = CloudTurnTakingSpeechInteraction(
-                self.participant_id)
+                self.participant_id,
+                server_ip=self.server_ip,
+                server_port=self.server_port,
+            )
         else:
             raise ValueError(
-                "Please modify the conditions_order.txt file to make sure you are running the offloaded speech engine."
+                "Please modify the conditions_order.txt file and make sure you are running the offloaded speech engine."
             )
 
     def read_condition_participant(self):
@@ -388,4 +384,3 @@ async def run_experiment():
 if __name__ == "__main__":
     rospy.init_node("experiment_design", anonymous=True)
     asyncio.run(run_experiment())
-
