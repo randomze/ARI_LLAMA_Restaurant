@@ -2,24 +2,23 @@
 
 # Import the convenience commands
 source ari-convenience-docker/environment
-source RODGER/environment_rodger
 
 # Create a folder structure
-mkdir containers_fs
+mkdir -p containers_fs
 
-mkdir containers_fs/gallium
-mkdir containers_fs/gallium/src
-mkdir containers_fs/gallium/bridge
-
-mkdir containers_fs/rodger
+mkdir -p containers_fs/gallium
+mkdir -p containers_fs/gallium/src
+mkdir -p containers_fs/gallium/bridge
 
 # Populate the folder structure
-sn -l cloud_interaction containers_fs/gallium/src/cloud_interaction
-sn -l RODGER/RODGER_src containers_fs/rodger/src
+cp -r $(pwd)/cloud_interaction $(pwd)/containers_fs/gallium/src
 
 # Create the containers
 make_container gallium ari-llama-gallium-container ./containers_fs/gallium/src ./containers_fs/gallium/bridge
-make_rodger ari-llama-rodger-container ./containers_fs/rodger/src
+
+# Do this manually for RODGER because it deviates a bit from the poor abstractions of ari-convenience
+create_image desktop ./RODGER
+make_container_adv desktop ari-llama-rodger-container ./RODGER/RODGER_src /home/$USER/RODGER_src ollama /root/.ollama
 
 # Start the containers
 start_container ari-llama-gallium-container
@@ -27,32 +26,34 @@ start_container ari-llama-rodger-container
 
 # New aliases because it's annoying to write too much
 run_gallium() {
-  run_command ari-llama-gallium-container ${@:1}
+  run_command ari-llama-gallium-container "$@"
 }
 
 run_rodger() {
-  run_command ari-llama-rodger-container ${@:1}
+  run_command ari-llama-rodger-container "$@"
 }
 
 # Compile the ROS workspace
-run_gallium "cd catkin_ws; catkin build"
+run_gallium /bin/bash -c "source /opt/pal/gallium/setup.bash; cd catkin_ws; catkin build; python3 -m pip install python-statemachine"
 
 # Start the Ollama server in the background and hide its output
-run_rodger "" &>/dev/null &
+run_rodger /bin/bash -c "python server/ollama_app.py" &>rodger_output.txt &
 
 # Start the ROS package
-run_gallium "source catkin_ws/devel/setup.bash; rosrun cloud_interaction experiment_design" &
+run_gallium /bin/bash -c "source catkin_ws/devel/setup.bash; roscore" &>/dev/null &
+run_gallium /bin/bash -c "source catkin_ws/devel/setup.bash; rosrun cloud_interaction experiment_design.py" &
 
 # Wait for the user to write "end" in order to finish the interaction
+echo "Write 'end' when you wish to terminate the experiment"
 USER_STRING=""
-while [ $USER_STRING != "end" ]; do
+while [ "$USER_STRING" != "end" ]; do
   read USER_STRING
 done
-run_gallium "source catkin_ws/devel/setup.bash; rostopic pub -1 /set_flag_end std_msgs/String finish"
+run_gallium /bin/bash -c "source catkin_ws/devel/setup.bash; rostopic pub -1 /set_flag_end std_msgs/String finish"
 
 # Sleep for a bit to give it time to wrap up
 sleep 10s
 
 # Stop the containers
-stop_container ari-llama-gallium-container
-stop_container ari-llama-rodger-container
+close_container ari-llama-gallium-container
+close_container ari-llama-rodger-container

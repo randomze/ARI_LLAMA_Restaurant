@@ -28,8 +28,7 @@ class CloudTurnTakingSpeechInteraction:
         self.ollama_server_take_order_food = f"{server_uri}/take_order_food"
         self.ollama_server_sit_customer = f"{server_uri}/sit_customer"
         self.ollama_server_take_order_drink = f"{server_uri}/take_order_drink"
-        self.ollama_server_take_order_dessert = f"{
-            server_uri}/take_order_dessert"
+        self.ollama_server_take_order_dessert = f"{server_uri}/take_order_dessert"
         self.number_retries = 0
         self.max_number_retries = 3
 
@@ -235,8 +234,7 @@ class Logger:
             if "|" in message_chatbot:
                 message_chatbot = message_chatbot.split("|")[1]
             log_file.write(
-                f"{timestamp} | {type_call} | {time} | {
-                    message_user} | {message_chatbot} | {delay}\n"
+                f"{timestamp} | {type_call} | {time} | {message_user} | {message_chatbot} | {delay}\n"
             )
 
     def log_message(self, participant_id, type_call, time, message):
